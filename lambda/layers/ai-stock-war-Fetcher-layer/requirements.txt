@@ -1,4 +1,0 @@
-numpy<2
-yfinance
-redis
-psycopg2-binary

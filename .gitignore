@@ -10,3 +10,4 @@ opensearch
 scripts/
 infrastructure/
 lambda/layers/
+**/__pycache__/
