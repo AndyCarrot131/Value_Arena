@@ -1,0 +1,23 @@
+# AWS SDK
+boto3==1.34.34
+botocore==1.34.34
+
+# Database
+psycopg2-binary==2.9.9
+
+# HTTP requests
+requests==2.31.0
+
+# HTML Parsing
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# Utilities
+python-dateutil==2.8.2
+schedule==1.2.1
+
+# Logging
+python-json-logger==2.0.7
+
+# PDF processing
+PyPDF2==3.0.1

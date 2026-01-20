@@ -1,0 +1,12 @@
+.env
+.archive
+.github/
+AI_prompt/
+secretsmanager/
+SQL/
+*pem
+*.sh
+opensearch
+scripts/
+infrastructure/
+lambda/layers/

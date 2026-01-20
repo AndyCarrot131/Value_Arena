@@ -1,0 +1,21 @@
+# AWS SDK
+boto3==1.34.34
+botocore==1.34.34
+
+# 数据库
+psycopg2-binary==2.9.9
+
+# FinBERT & ML Dependencies
+torch==2.2.0
+transformers==4.37.0
+tokenizers==0.15.0
+safetensors==0.4.1
+numpy<2.0.0
+
+# 工具库
+python-dateutil==2.8.2
+pytz==2024.1
+schedule==1.2.1
+
+# 日志
+python-json-logger==2.0.7
