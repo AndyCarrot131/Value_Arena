@@ -132,7 +132,19 @@ class TradingDecisionWorkflow:
                     continue
 
                 if not decision:
+                    logger.error("Failed to generate decision")
+                    return False
+
+                # Check if HOLD decision
+                if decision.get('decision_type') == 'HOLD':
                     logger.info("AI decided to HOLD, no trade execution")
+                    # Write HOLD decision to RAG
+                    if self.test_mode:
+                        logger.info("TEST MODE: Skipping RAG write for HOLD decision")
+                        logger.info(f"Would write HOLD decision to RAG: {decision.get('reasoning', '')[:100]}...")
+                    else:
+                        logger.info("Writing HOLD decision to RAG")
+                        self._write_to_rag(agent_id, decision, data)
                     return True
 
                 # 5. Validate decision (6 rules)
@@ -656,16 +668,15 @@ class TradingDecisionWorkflow:
                 )
                 return "PARSE_ERROR"
 
+        # Add decision_id
+        if 'decision_id' not in decision:
+            decision['decision_id'] = str(uuid.uuid4())
+
         # Check decision type
         decision_type = decision.get('decision_type', 'HOLD')
 
         if decision_type == 'HOLD':
             logger.info("AI decided to HOLD")
-            return None
-
-        # Add decision_id
-        if 'decision_id' not in decision:
-            decision['decision_id'] = str(uuid.uuid4())
 
         return decision
     
@@ -991,7 +1002,7 @@ Response requirements:
             # Generate embedding
             reasoning = decision.get('reasoning', '')
             embedding = self.bedrock.generate_embedding(reasoning)
-            
+
             # Write to OpenSearch
             self.opensearch.index_decision(
                 decision_id=decision['decision_id'],
@@ -999,7 +1010,7 @@ Response requirements:
                 decision_embedding=embedding,
                 reasoning=reasoning,
                 decision_type=decision['decision_type'],
-                symbol=decision['symbol'],
+                symbol=decision.get('symbol', 'HOLD'),  # HOLD decisions may not have symbol
                 quality_weight=0.5,  # Evaluate after 30 days
                 metadata={
                     'agent_id': agent_id,
@@ -1011,8 +1022,8 @@ Response requirements:
                     **decision.get('market_context', {})
                 }
             )
-            
-            logger.info("Decision written to RAG knowledge base")
+
+            logger.info(f"Decision written to RAG knowledge base (type: {decision['decision_type']})")
         
         except Exception as e:
             logger.warning(f"Failed to write to RAG: {e}")
