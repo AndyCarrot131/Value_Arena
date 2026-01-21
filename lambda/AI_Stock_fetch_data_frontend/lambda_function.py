@@ -133,9 +133,13 @@ def fetch_news_with_analysis(cursor, limit: int = 200) -> List[Dict]:
     if not news_ids:
         return []
 
-    # Step 2: Fetch news_articles for these news_ids
+    # Step 2: Fetch news_articles for these news_ids (excluding content to reduce payload)
     cursor.execute("""
-        SELECT * FROM news_articles
+        SELECT id, news_id, title, source, url, published_at, fetched_at,
+               category, related_stocks, classification, content_hash,
+               similarity_cluster_i, comprehend_entities, comprehend_key_phras,
+               is_duplicate, primary_article_id, sentiment, sentiment_score
+        FROM news_articles
         WHERE news_id = ANY(%s)
         ORDER BY published_at DESC
     """, (news_ids,))
