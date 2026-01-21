@@ -11,3 +11,4 @@ scripts/
 infrastructure/
 lambda/layers/
 **/__pycache__/
+*ipynb
