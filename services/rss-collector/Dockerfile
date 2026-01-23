@@ -25,5 +25,12 @@ ENV PYTHONUNBUFFERED=1
 HEALTHCHECK --interval=5m --timeout=3s \
   CMD python -c "import psycopg2; print('Healthy')" || exit 1
 
-# 运行应用
-CMD ["python", "app.py"]
+# Set environment variables
+ENV AWS_DEFAULT_REGION=us-east-1
+
+# Create non-root user for security
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Default command
+ENTRYPOINT ["python", "main.py"]

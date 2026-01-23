@@ -1,24 +1,26 @@
 """
 RAG Retriever Service
-Retrieve similar historical decisions from Bedrock Knowledge Base
+Retrieve similar historical decisions using OpenSearch k-NN
 """
 
 from typing import List, Dict, Any, Optional
-from core import BedrockClient, create_context_logger
+from core import BedrockClient, OpenSearchClient, create_context_logger
 
 logger = create_context_logger()
 
 
 class RAGRetriever:
     """RAG retrieval service"""
-    
-    def __init__(self, bedrock_client: BedrockClient):
+
+    def __init__(self, opensearch_client: OpenSearchClient, bedrock_client: BedrockClient):
         """
         Initialize the RAG retriever
-        
+
         Args:
-            bedrock_client: Bedrock client
+            opensearch_client: OpenSearch client (for k-NN search)
+            bedrock_client: Bedrock client (for generating query embeddings)
         """
+        self.opensearch = opensearch_client
         self.bedrock = bedrock_client
     
     def retrieve_similar_decisions(
@@ -50,32 +52,33 @@ class RAGRetriever:
         
         # Build query text
         query_text = self._build_query_text(context)
-        
+
         # Retrieve
         try:
+            # Generate query embedding
+            query_vector = self.bedrock.generate_embedding(query_text)
+
+            # Build filter
+            filter_conditions = None
             if filter_by_agent:
-                # Retrieve only this AI's historical decisions
-                results = self.bedrock.retrieve_with_filter(
-                    query_text=query_text,
-                    agent_id=context.get('agent_id'),
-                    num_results=num_results
-                )
-            else:
-                # Retrieve historical decisions from all AIs
-                results = self.bedrock.retrieve_similar_cases(
-                    query_text=query_text,
-                    num_results=num_results
-                )
-            
+                filter_conditions = {'term': {'agent_id': context.get('agent_id')}}
+
+            # k-NN search
+            results = self.opensearch.knn_search(
+                query_vector=query_vector,
+                filter_conditions=filter_conditions,
+                num_results=num_results
+            )
+
             logger.info(
                 f"Retrieved {len(results)} similar decisions",
                 extra={'details': {
                     'avg_score': sum(r['score'] for r in results) / len(results) if results else 0
                 }}
             )
-            
+
             return results
-        
+
         except Exception as e:
             logger.error(f"Failed to retrieve similar decisions: {e}")
             return []
@@ -301,10 +304,23 @@ I want to understand:
 """
 
         try:
-            # Retrieve only this agent's history about the stock
-            results = self.bedrock.retrieve_with_filter(
-                query_text=query_text,
-                agent_id=agent_id,
+            # Generate query embedding
+            query_vector = self.bedrock.generate_embedding(query_text)
+
+            # Build filter: agent_id + symbol
+            filter_conditions = {
+                'bool': {
+                    'must': [
+                        {'term': {'agent_id': agent_id}},
+                        {'term': {'symbol': symbol}}
+                    ]
+                }
+            }
+
+            # k-NN search
+            results = self.opensearch.knn_search(
+                query_vector=query_vector,
+                filter_conditions=filter_conditions,
                 num_results=num_results
             )
 
@@ -348,19 +364,25 @@ I want to understand:
         query_text = f"Retrieve my daily stock summaries for {symbol} over the past {days} days."
 
         try:
-            # Build filter: agent + symbol + type (date window described in query text; Bedrock filter only supports limited ops)
-            filter_criteria = {
-                'andAll': [
-                    {'equals': {'key': 'metadata.agent_id', 'value': agent_id}},
-                    {'equals': {'key': 'metadata.symbol', 'value': symbol}},
-                    {'equals': {'key': 'metadata.type', 'value': 'stock_daily_summary'}}
-                ]
+            # Generate query embedding
+            query_vector = self.bedrock.generate_embedding(query_text)
+
+            # Build filter: agent + symbol + type
+            filter_conditions = {
+                'bool': {
+                    'must': [
+                        {'term': {'agent_id': agent_id}},
+                        {'term': {'symbol': symbol}},
+                        {'term': {'metadata.type': 'stock_daily_summary'}}
+                    ]
+                }
             }
 
-            results = self.bedrock.retrieve_similar_cases(
-                query_text=query_text,
-                num_results=num_results,
-                filter_criteria=filter_criteria
+            # k-NN search
+            results = self.opensearch.knn_search(
+                query_vector=query_vector,
+                filter_conditions=filter_conditions,
+                num_results=num_results
             )
 
             logger.info(
@@ -393,18 +415,25 @@ I want to understand:
         query_text = f"Retrieve my latest weekly stock summary for {symbol}."
 
         try:
-            filter_criteria = {
-                'andAll': [
-                    {'equals': {'key': 'metadata.agent_id', 'value': agent_id}},
-                    {'equals': {'key': 'metadata.symbol', 'value': symbol}},
-                    {'equals': {'key': 'metadata.type', 'value': 'stock_weekly_summary'}}
-                ]
+            # Generate query embedding
+            query_vector = self.bedrock.generate_embedding(query_text)
+
+            # Build filter: agent + symbol + type
+            filter_conditions = {
+                'bool': {
+                    'must': [
+                        {'term': {'agent_id': agent_id}},
+                        {'term': {'symbol': symbol}},
+                        {'term': {'metadata.type': 'stock_weekly_summary'}}
+                    ]
+                }
             }
 
-            results = self.bedrock.retrieve_similar_cases(
-                query_text=query_text,
-                num_results=num_results,
-                filter_criteria=filter_criteria
+            # k-NN search
+            results = self.opensearch.knn_search(
+                query_vector=query_vector,
+                filter_conditions=filter_conditions,
+                num_results=num_results
             )
 
             logger.info(

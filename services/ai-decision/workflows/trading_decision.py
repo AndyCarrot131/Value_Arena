@@ -98,10 +98,7 @@ class TradingDecisionWorkflow:
             # 1. Collect data
             logger.info("Step 1: Collecting market data")
             data = self._collect_market_data(agent_id)
-            
-            if not data:
-                logger.error("Failed to collect market data")
-                return False
+            # Note: _collect_market_data now raises exception on failure
             
             # 2. Check monthly trade quota
             monthly_quota = data['monthly_quota']
@@ -313,16 +310,13 @@ class TradingDecisionWorkflow:
             rag_daily_days = 3
             rag_daily_summaries = {}
             for symbol in all_symbols:
-                try:
-                    rag_daily_summaries[symbol] = self.rag_retriever.retrieve_recent_stock_daily_summaries(
-                        agent_id=agent_id,
-                        symbol=symbol,
-                        days=rag_daily_days,
-                        num_results=5
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to retrieve RAG daily summaries for {symbol}: {e}")
-                    rag_daily_summaries[symbol] = []
+                # Critical: RAG retrieval failure should fail the entire job
+                rag_daily_summaries[symbol] = self.rag_retriever.retrieve_recent_stock_daily_summaries(
+                    agent_id=agent_id,
+                    symbol=symbol,
+                    days=rag_daily_days,
+                    num_results=5
+                )
 
             # Current positions
             positions = self.data_collector.get_positions(agent_id)
@@ -364,7 +358,7 @@ class TradingDecisionWorkflow:
 
         except Exception as e:
             logger.error(f"Failed to collect market data: {e}")
-            return None
+            raise RuntimeError(f"Critical: market data collection failed: {e}")
     
     def _infer_market_environment(self, news: list, prices: dict) -> Dict[str, str]:
         """
@@ -535,7 +529,7 @@ class TradingDecisionWorkflow:
         
         except Exception as e:
             logger.error(f"Failed to retrieve similar decisions: {e}")
-            return []
+            raise RuntimeError(f"Critical: RAG retrieval failed: {e}")
     
     def _generate_decision(
         self,

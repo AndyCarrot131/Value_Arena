@@ -883,6 +883,18 @@ User Requirement: Output PLAIN TEXT paragraphs only (no JSON, no structured data
                 if not symbol.startswith('^')
             }
 
+            # OPTIMIZATION 2: Filter out stocks not in our database stocks table
+            # This prevents analyzing random stocks mentioned in news that we don't track
+            valid_symbols = self._get_valid_stock_symbols()
+            filtered_stocks = all_stocks_to_analyze.intersection(valid_symbols)
+
+            # Log which stocks were filtered out
+            filtered_out = all_stocks_to_analyze - filtered_stocks
+            if filtered_out:
+                logger.info(f"Filtered out {len(filtered_out)} stocks not in database: {sorted(filtered_out)}")
+
+            all_stocks_to_analyze = filtered_stocks
+
             if not all_stocks_to_analyze:
                 logger.info("No stocks to analyze (no news mentions and no holdings)")
                 return []
@@ -1195,6 +1207,22 @@ Output: Plain text paragraph, approximately 50 words."""
         parts.append("Focus on: today's key developments, your view, and brief outlook.")
 
         return "\n".join(parts)
+
+    def _get_valid_stock_symbols(self) -> set:
+        """
+        Get all valid stock symbols from the database stocks table
+
+        Returns:
+            Set of valid stock symbols (str)
+        """
+        try:
+            query = "SELECT symbol FROM stocks WHERE enabled = true"
+            result = self.db.execute_query(query)
+            return {row['symbol'] for row in result}
+        except Exception as e:
+            logger.error(f"Failed to fetch valid stock symbols: {e}")
+            # Return empty set to fail-safe (won't filter anything if DB query fails)
+            return set()
 
     def _extract_sentiment_from_analysis(self, news_analysis: List[Dict[str, Any]]) -> str:
         """

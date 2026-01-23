@@ -77,19 +77,20 @@ def initialize_services():
 
         bedrock_client = get_bedrock_client(
             region=settings.region,
-            knowledge_base_id=settings.knowledge_base_id
+            knowledge_base_id=None  # No longer using Knowledge Base
         )
 
         opensearch_client = get_opensearch_client(
             collection_endpoint=settings.opensearch_endpoint,
             index_name=settings.index_name,
-            region=settings.region
+            region=settings.region,
+            service=settings.opensearch_service
         )
 
         # Initialize business services
         data_collector = DataCollector(db, redis_client)
         memory_manager = MemoryManager(db)
-        rag_retriever = RAGRetriever(bedrock_client)
+        rag_retriever = RAGRetriever(opensearch_client, bedrock_client)
         decision_validator = DecisionValidator(db)
         portfolio_executor = PortfolioExecutor(db)
         # AIOrchestrator 不再使用全局 ai_client，每个 agent 使用独立的 API Key

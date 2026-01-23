@@ -49,6 +49,7 @@ class Settings:
         
         # OpenSearch
         self._opensearch_endpoint = os.getenv('OPENSEARCH_ENDPOINT')
+        self._opensearch_service = os.getenv('OPENSEARCH_SERVICE', 'es')  # 'es' for Provisioned, 'aoss' for Serverless
         self._index_name = os.getenv('INDEX_NAME', 'ai-investment-decisions')
         self._knowledge_base_id = os.getenv('KNOWLEDGE_BASE_ID')
     
@@ -203,6 +204,16 @@ class Settings:
             self._load_from_secrets_manager()
         return self._opensearch_config['index_name']
     
+    @property
+    def opensearch_service(self) -> str:
+        """OpenSearch service name ('es' for Provisioned, 'aoss' for Serverless)"""
+        if self.dev_mode:
+            return self._opensearch_service
+
+        if not self._opensearch_config:
+            self._load_from_secrets_manager()
+        return self._opensearch_config.get('service', 'es')
+
     @property
     def knowledge_base_id(self) -> str:
         """Bedrock Knowledge Base ID"""

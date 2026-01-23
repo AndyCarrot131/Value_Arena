@@ -286,10 +286,47 @@ class RSSCollector:
             import traceback
             traceback.print_exc()
 
+    def cleanup_old_articles(self, days: int = 8):
+        """
+        Delete news articles older than specified days
+
+        Args:
+            days: Number of days to keep (default: 8)
+        """
+        logger.info(f"Cleaning up news articles older than {days} days...")
+        cursor = self.db_conn.cursor()
+
+        try:
+            # Delete articles where published_at OR fetched_at is older than N days
+            # Use COALESCE to handle NULL published_at (fall back to fetched_at)
+            cursor.execute("""
+                DELETE FROM news_articles
+                WHERE COALESCE(published_at, fetched_at) < NOW() - INTERVAL '%s days'
+                RETURNING id
+            """, (days,))
+
+            deleted_ids = cursor.fetchall()
+            deleted_count = len(deleted_ids)
+            self.db_conn.commit()
+
+            if deleted_count > 0:
+                logger.info(f"Deleted {deleted_count} old articles (older than {days} days)")
+            else:
+                logger.info(f"No articles older than {days} days to delete")
+
+        except Exception as e:
+            logger.error(f"Failed to cleanup old articles: {e}")
+            self.db_conn.rollback()
+        finally:
+            cursor.close()
+
     def collect_all(self):
         """Perform a full collection run"""
         logger.info("=" * 50)
         logger.info("Starting RSS collection task")
+
+        # Cleanup old articles (>8 days) before collecting new ones
+        self.cleanup_old_articles(days=8)
 
         sources = self.get_rss_sources()
         logger.info(f"Found {len(sources)} RSS sources")
